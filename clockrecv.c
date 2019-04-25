@@ -30,9 +30,10 @@ sbit  PAC   =P1^5;
 //sbit  P35	= P3^5;
 sbit DIO = P1^0;				//595 io
 sbit RCLK  = P3^7;			//595 rclk
-sbit SCLK = P3^4;				// 595 sclk
+sbit SCLK = P3^2;				// 595 sclk
 sbit pinLED = P3^5;
-
+sbit P33 = P3^3;
+sbit pinDebug = P3^4;
 bit dots;
 INT16U count;                         //1000 times counter
 INT8U cntRf=0;
@@ -61,7 +62,7 @@ INT8U code LED_0F[] =
 {// 0	   1	  2	   3	  4	   5	  6	   7	  8	   9	  A	   b	  C    d	  E    F    :
 	0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0x8C,0xBF,0xC6,0xA1,0x86,0xFF,0x7f
 };
-INT8U data LED[8]={0,0,0,0,0,0,0,0};		// LED???
+INT8U data LED[8]={0x0e,0,0,0,0,0,0,0};		// LED???
 
 
 //*****************************************************************************************
@@ -342,6 +343,7 @@ void tm0_isr() interrupt 1 using 2
       count = 1000;               //reset counter
 			cntRf++;
       dots = !dots;      //work LED flash
+		 P33=!P33;
    }
 }
 
@@ -684,6 +686,7 @@ void SetRfAddr(INT8U addr)
 
 void RestartCC1100()
 {
+	PAC=0;
 	POWER_UP_RESET_CC1100();
 	halRfWriteRfSettings();
 	halSpiWriteBurstReg(CCxxx0_PATABLE, PaTabel, 8);
@@ -698,8 +701,11 @@ INT8U testRfrecv()
 	memset(RFBuf,0x00,SBUF_SIZE);
 		if (halRfReceivePacket(RFBuf, &leng)) 
 		{
-//			SendUartByte(leng);
-//			SendUartBytes(RFBuf,leng);
+			pinDebug=1;
+			if (!pinDebug){
+				SendUartByte(leng);
+				SendUartBytes(RFBuf,leng);
+			}
 			if (leng<5) leng=0; 
 			if (leng>0) {
 				for(i=1; i<leng; i++) if ((RFBuf[i]>0x39)||(RFBuf[i]<0x30)) leng=0;
@@ -765,6 +771,8 @@ void led595_Display(void)
 
 	RCLK = 0;
 	RCLK = 1;
+	
+	//for (i=0; i<4; i++) SendUartByte(LED[i]);
 }
 
 INT8U testdigit()
@@ -775,8 +783,7 @@ INT8U testdigit()
 void main(void)
 {
 	INT8U i;
-pinLED=1;	
-	//InitUart();
+	pinLED=0;	
     SCON = 0x50;            //8-bit variable UART
     TMOD = 0x21;            //Set Timer1 as 8-bit auto reload mode & set timer0 16bit
     TL0 = T1MS;                     //initial timer0 low byte
@@ -791,7 +798,7 @@ pinLED=1;
 		EA = 1;                 //Open master interrupt switch
 
 
-
+	PAC=0;
 	CpuInit();
 	memset(sUart,0x00,SBUF_SIZE);
 	memset(PDATable,0x00,PDA_CNT);
@@ -800,14 +807,20 @@ pinLED=1;
 	RestartCC1100();
 	while(1)
 	{
-		if (cntRf>5){RestartCC1100(); cntRf=0; SendUartByte(0x41);}
+		if (cntRf>5){
+			RestartCC1100(); 
+			cntRf=0; 
+			SendUartByte(0x41);
+			memset(LED,0x00,8);
+			if (dots)	LED[0]=0x0e;
+		}
 		if (testRfrecv()>0){
 			LED[0]=RFBuf[4]-0x30;
 			LED[1]=RFBuf[3]-0x30;
 			LED[2]=RFBuf[2]-0x30;
 			LED[3]=RFBuf[1]-0x30;
 		}
-			led595_Display();			 
+		led595_Display();			 
 	}
 	
 }

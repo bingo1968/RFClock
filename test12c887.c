@@ -58,6 +58,7 @@ sbit DIO = P3^3;				//595 io
 sbit RCLK  = P3^4;			//595 rclk
 sbit SCLK = P3^2;				// 595 sclk
 sbit pinLED = P1^0;
+sbit pinDebug=P1^1;
 
 BYTE data tasklst[9];
 BYTE data bufSrecv[30];// = "CMD 18-12-31 7 01:59:43"
@@ -80,6 +81,7 @@ void SendData(BYTE dat);
 void SendString(char *s);
 void appendtask(BYTE tsk);
 void led595_Display(void);
+void SendUartBytes(BYTE *s, BYTE len);
 
 void Delay100us()		//@11.0592MHz
 {
@@ -203,6 +205,8 @@ void ds12887_settime()
 	bufSrecv[6]=mm;
 	bufSrecv[7]=yy;
 	bufSrecv[8]=0;
+	//SendUartBytes(bufSrecv, 8);
+
 }
 
 void ds12887_setnvram()
@@ -322,15 +326,17 @@ void exectasks()
 		}
 		if (tasklst[1]==CMDSETTIME) {
 			ds12887_settime();
-			for (i=1;i<8;i++) SendData(bufSrecv[i]);
+			SendUartBytes(bufSrecv, 8);
+//			for (i=1;i<8;i++) SendData(bufSrecv[i]);
 			removetask(1);
 		}
 		if (tasklst[1]==CMDPRNTIME) {
-			disptime();
+			pinDebug=1;
+			if (pinDebug)	disptime();
 			removetask(1);
 		}
 		if (tasklst[1]==CMDSETNVRAM){
-SendData(rcvidx);
+//SendData(rcvidx);
 			ds12887_setnvram();
 			removetask(1);
 		}
@@ -373,7 +379,7 @@ void main()
 	
 		for (i=0; i<9; i++) tasklst[i]=0;			//clear task list
 		ds12887_init();		
-
+		
     while(1){	
 			exectasks();
 			led595_Display();
@@ -445,6 +451,12 @@ void SendString(char *s)
     {
         SendData(*s++);     //Send current char and increment string ptr
     }
+}
+
+void SendUartBytes(BYTE *s, BYTE len)
+{
+	BYTE i;
+	for (i=0; i<len; i++) SendData(s[i]);
 }
 
 

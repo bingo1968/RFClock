@@ -18,18 +18,7 @@
 
 #define		NODE_ACK_WAIT_TIME		0x80					//���ճ�ʱ
 //*****************************************************************************************
-/*
-sbit 	GDO0	=P3^7;
-sbit	MISO	=P3^3;
-sbit	MOSI	=P3^2;
-sbit	SCK		=P3^4;
-sbit 	GDO2	=P3^5;  
-sbit	CSN		=P3^6;  
-sbit  PAC   =P2^7; 
-sbit DIO = P1^3;				//595 io
-sbit RCLK  = P1^2;			//595 rclk
-sbit SCLK = P1^1;				// 595 sclk
-*/
+
 sbit 	GDO0	=P1^6;
 sbit	MISO	=P1^3;
 sbit	MOSI	=P1^1;
@@ -38,10 +27,9 @@ sbit 	GDO2	=P1^4;
 sbit	CSN		=P1^7;  
 sbit  PAC   =P1^5; 
 
-sbit  P35	= P3^5;
-sbit 	P34 = P3^4;
-
-sbit pinLED = P1^0;
+sbit 	pinDebug = P3^4;
+sbit	P33 = P3^3;
+sbit pinLED = P3^5;
 //*****************************************************************************************
 
 //***************���๦�ʲ������ÿ���ϸ�ο�DATACC1100Ӣ���ĵ��е�48-49ҳ�Ĳ�����******************
@@ -700,20 +688,26 @@ void RestartCC1100()
 
 void testsend()
 {
-	INT8U i;
+	int i;
 	//memcpy(RFBuf,"ABCDEFGHIJK",16);
 	memset(RFBuf,0x00,SBUF_SIZE);
 	i=sUart[1];
 	memcpy(RFBuf,sUart+2,i);
-pinLED=1;
-	i=halRfSendPacketAddr(RFBuf,i,01);	// Transmit Tx buffer data
-	memset(sUart,0x00,SBUF_SIZE);
 pinLED=0;
+	i=halRfSendPacketAddr(RFBuf,i,01);	// Transmit Tx buffer data
+	SendUartByte(0x7f);
+	SendUartByte(0x01);
+	SendUartByte(i);
+	memset(sUart,0x00,SBUF_SIZE);
+pinLED=1;
 }
 
 void main(void)
 {
 	PAC=0;
+	P33=1;
+	P1=0;
+	pinLED=1;
 	InitUart();
 	CpuInit();
 	memset(sUart,0x00,SBUF_SIZE);
@@ -723,18 +717,19 @@ void main(void)
 	RestartCC1100();
 	while(1)
 	{		
-		P34=1;
-		if(!P34){
+		pinDebug=1;
+		P33=1;
+		pinLED=1;
+		if(!pinDebug){
+			P33=0;
+			pinLED=0;
 			memcpy(sUart+2,"0123456789ABCDEF",16);
 			sUart[0]=17;
-			sUart[1]=17;
+			sUart[1]=16;
 		}
 		if (UartDataOK()){
-//			memcpy(sUart+2,"ABCDEFGHIJKLMNOP",16);
-//			sUart[0]=17;
-//			sUart[1]=17;
-			RestartCC1100();
-			testsend();
+			  RestartCC1100();
+			  testsend();
 		}
 	}
 	
