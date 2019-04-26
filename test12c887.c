@@ -54,11 +54,16 @@ sbit pinDS = P1^4;
 //sbit DIO = P1^3;				//595 io
 //sbit RCLK  = P1^2;			//595 rclk
 //sbit SCLK = P1^1;				// 595 sclk
+//---- lcd1602 pin define
+sbit rs = P1 ^ 1;
+sbit rw = P1 ^ 2;
+sbit ep = P1 ^ 3;
+
 sbit DIO = P3^3;				//595 io
 sbit RCLK  = P3^4;			//595 rclk
 sbit SCLK = P3^2;				// 595 sclk
 sbit pinLED = P1^0;
-sbit pinDebug=P1^1;
+//sbit pinDebug=P1^1;
 
 BYTE data tasklst[9];
 BYTE data bufSrecv[30];// = "CMD 18-12-31 7 01:59:43"
@@ -82,6 +87,11 @@ void SendString(char *s);
 void appendtask(BYTE tsk);
 void led595_Display(void);
 void SendUartBytes(BYTE *s, BYTE len);
+void lcd_wcmd(BYTE cmd);
+void lcd_pos(BYTE pos);
+void lcd_wdat(BYTE dat);
+void lcd_init();
+
 
 void Delay100us()		//@11.0592MHz
 {
@@ -284,6 +294,17 @@ void disptime()
 	LED[1]=bcdtobyte(buftmp[2],1)-0x30;
 	LED[2]=bcdtobyte(buftmp[3],0)-0x30;
 	LED[3]=bcdtobyte(buftmp[3],1)-0x30;
+	lcd_pos(0);
+	lcd_wdat(bcdtobyte(buftmp[3],1));
+	lcd_wdat(bcdtobyte(buftmp[3],0));
+	lcd_wdat(0x3A);
+	lcd_wdat(bcdtobyte(buftmp[2],1));
+	lcd_wdat(bcdtobyte(buftmp[2],0));
+	lcd_wdat(0x3A);
+	lcd_wdat(bcdtobyte(buftmp[1],1));
+	lcd_wdat(bcdtobyte(buftmp[1],0));
+	lcd_wdat(0x20);
+	
 	clrbuftmp();
 	for (i=0; i<3; i++){
 		SendData(0x7f);
@@ -327,16 +348,13 @@ void exectasks()
 		if (tasklst[1]==CMDSETTIME) {
 			ds12887_settime();
 			SendUartBytes(bufSrecv, 8);
-//			for (i=1;i<8;i++) SendData(bufSrecv[i]);
 			removetask(1);
 		}
 		if (tasklst[1]==CMDPRNTIME) {
-			pinDebug=1;
-			if (pinDebug)	disptime();
+			disptime();
 			removetask(1);
 		}
 		if (tasklst[1]==CMDSETNVRAM){
-//SendData(rcvidx);
 			ds12887_setnvram();
 			removetask(1);
 		}
@@ -379,10 +397,12 @@ void main()
 	
 		for (i=0; i<9; i++) tasklst[i]=0;			//clear task list
 		ds12887_init();		
-		
+		lcd_init();
+		lcd_wcmd(0x38); //8bit,1/16,5x8
+
     while(1){	
 			exectasks();
-			led595_Display();
+			//led595_Display();
 		}
 }
 
@@ -526,4 +546,68 @@ void led595_Display(void)
 
 	RCLK = 0;
 	RCLK = 1;
+}
+
+
+
+////LCD1602 procs
+//---------LCD module
+void lcd_wcmd(BYTE cmd)
+{ // ???????LCD
+	delay100us();
+	rs = 0;
+	rw = 0;
+	ep = 0;
+	_nop_();
+	_nop_();
+	P2 = cmd;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	ep = 1;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	ep = 0;
+}
+
+void lcd_pos(BYTE pos)
+{
+	lcd_wcmd(pos | 0x80);
+}
+
+void lcd_wdat(BYTE dat)
+{ 
+	delay100us();
+	rs = 1;
+	rw = 0;
+	ep = 0;
+	_nop_();
+	_nop_();
+	P2 = dat;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	ep = 1;
+	_nop_();
+	_nop_();
+	_nop_();
+	_nop_();
+	ep = 0;
+}
+
+void lcd_init()
+{
+	delay100us();		
+	lcd_wcmd(0x38); //8bit,1/16,5x8
+	delay100us();
+	lcd_wcmd(0x06); ///AC auto +1
+	delay100us();
+	lcd_wcmd(0x0c); //disp enable
+	delay100us();
+	lcd_wcmd(0x01); //??LCD?????
+	delay100us();
 }
