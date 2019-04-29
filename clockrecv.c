@@ -58,11 +58,23 @@ INT8U data chnl = 0x00;
 INT8U data myaddr = 0x01;
 
 bit busy;
+
+//#define LEDCOMM_A				// led common Anode else common Cathod
+
 INT8U code LED_0F[] = 
 {// 0	   1	  2	   3	  4	   5	  6	   7	  8	   9	  A	   b	  C    d	  E    F    :
+	#ifdef LEDCOMM_A
 	0xC0,0xF9,0xA4,0xB0,0x99,0x92,0x82,0xF8,0x80,0x90,0x8C,0xBF,0xC6,0xA1,0x86,0xFF,0x7f
+	#else
+	0x3F,0x06,0x5B,0x4F,0x66,0x6D,0x7D,0x07,0x7F,0x6F,0x73,0x40,0x39,0x5E,0x79,0x00,0x80
+	#endif
 };
 INT8U data LED[8]={0x0e,0,0,0,0,0,0,0};		// LED???
+#ifdef LEDCOMM_A
+	INT8U ledPos[4]={1,2,4,8};
+#else
+	INT8U ledPos[4]={0xfe,0xfd,0xfb,0xf7};
+#endif
 
 
 //*****************************************************************************************
@@ -740,7 +752,7 @@ void led595_Display(void)
 	i = *led_table;
 
 	led595_OUT(i);			
-	led595_OUT(0x01);		
+	led595_OUT(ledPos[0]);		
 
 	RCLK = 0;
 	RCLK = 1;
@@ -748,18 +760,22 @@ void led595_Display(void)
 	i = *led_table;
 
 	led595_OUT(i);		
-	led595_OUT(0x02);		
+	led595_OUT(ledPos[1]);		
 
 	RCLK = 0;
 	RCLK = 1;
 	led_table = LED_0F + LED[2];
 	i = *led_table;
 	if (dots){			//time division dots
-		i<<=1;
-		i>>=1;
+		#ifdef LEDCOMM_A
+			i<<=1;
+			i>>=1;
+		#else
+			i=i|0x80;
+		#endif
 	}
 	led595_OUT(i);			
-	led595_OUT(0x04);	
+	led595_OUT(ledPos[2]);	
 
 	RCLK = 0;
 	RCLK = 1;
@@ -767,7 +783,7 @@ void led595_Display(void)
 	i = *led_table;
 
 	led595_OUT(i);			
-	led595_OUT(0x08);		
+	led595_OUT(ledPos[3]);		
 
 	RCLK = 0;
 	RCLK = 1;
@@ -775,14 +791,9 @@ void led595_Display(void)
 	//for (i=0; i<4; i++) SendUartByte(LED[i]);
 }
 
-INT8U testdigit()
-{
-	
-}
 	
 void main(void)
 {
-	INT8U i;
 	pinLED=0;	
     SCON = 0x50;            //8-bit variable UART
     TMOD = 0x21;            //Set Timer1 as 8-bit auto reload mode & set timer0 16bit
@@ -812,7 +823,7 @@ void main(void)
 			cntRf=0; 
 			SendUartByte(0x41);
 			memset(LED,0x00,8);
-			if (dots)	LED[0]=0x0e;
+			LED[0]=0x0e;
 		}
 		if (testRfrecv()>0){
 			LED[0]=RFBuf[4]-0x30;
